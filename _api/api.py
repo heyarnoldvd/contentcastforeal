@@ -6,10 +6,11 @@ from langchain.chains import ChatVectorDBChain
 from langchain.chains.llm import LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.document_loaders import PagedPDFSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter, TextSplitter
 from pydantic.networks import HttpUrl
 from steamship import MimeTypes, SteamshipError
 from steamship.data.embeddings import EmbeddingIndex
-from steamship import Steamship
+from steamship import Steamship, SteamshipError
 from steamship.invocable import Config
 from steamship.invocable import PackageService, post, get
 from steamship_langchain.llms.openai import OpenAIChat
@@ -33,7 +34,7 @@ SUPPORTED_MIME_TYPES = {
 class AskMyBook(PackageService):
     class AskMyBookConfig(Config):
         index_name: str
-        model_name: str = "gpt-3.5-turbo"
+        model_name: str = "gpt-4"
         default_chat_session_id: Optional[str] = "default"
 
     config: AskMyBookConfig
@@ -48,6 +49,22 @@ class AskMyBook(PackageService):
     def config_cls(cls) -> Type[Config]:
         return cls.AskMyBookConfig
 
+    @post("/add_transcript")
+    def add_transcript(self,
+                     name: str,
+                     transcript: str) -> bool:
+        doc_index = self._get_index()
+        splitter = RecursiveCharacterTextSplitter()
+        texts = splitter.split_text(transcript)
+        
+        doc_index.add_texts(
+            texts,
+            metadatas=[{"source": name} for txt in texts],
+        )
+
+        self.ledger.add_document(name)
+        return True
+
     @post("/add_document")
     def add_document(self,
                      url: HttpUrl,
@@ -55,6 +72,7 @@ class AskMyBook(PackageService):
                      mime_type: Optional[MimeTypes] = None) -> bool:
         if mime_type not in SUPPORTED_MIME_TYPES:
             raise SteamshipError("Unsupported mimeType")
+            
 
         file_path = Path('/tmp/' + name)
         with file_path.open("wb") as f:
@@ -76,6 +94,7 @@ class AskMyBook(PackageService):
     @get("/documents", public=True)
     def get_indexed_documents(self) -> List[str]:
         """Fetch all the documents in the index"""
+        
         return self.ledger.list_documents()
 
     @post("/reset")
@@ -154,7 +173,7 @@ class AskMyBook(PackageService):
 
 
 if __name__ == '__main__':
-    index_name = "test-enias"
+    index_name = "contentcastindex"
     client = Steamship(workspace=index_name)
     amb = AskMyBook(client, config={"index_name": index_name})
 

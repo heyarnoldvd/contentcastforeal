@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from './Button'
-import { type Message, ChatLine, LoadingChatLine } from './ChatLine'
+import { Message, ChatLine, LoadingChatLine } from './ChatLine'
 import { useCookies } from 'react-cookie'
 import { HiOutlineArrowRight, HiOutlineRefresh, HiOutlinePlus } from 'react-icons/hi';
 import LoadingDots from "./LoadingDots";
@@ -103,6 +103,7 @@ export function Chat({ baseUrl }: { baseUrl: string }) {
       { message: message, who: 'user' } as Message,
     ]
     setMessages(newMessages)
+    
 
     const response = await fetch(baseUrl + '/answer', {
       method: 'POST',
